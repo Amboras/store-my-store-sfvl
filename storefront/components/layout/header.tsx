@@ -83,7 +83,7 @@ export default function Header() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2">
               <span className="font-heading text-2xl font-semibold tracking-tight">
-                Store
+                Amboras
               </span>
             </Link>
 

@@ -5,12 +5,18 @@ export const revalidate = 3600 // ISR: revalidate every hour
 import { medusaServerClient } from '@/lib/medusa-client'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Truck, RotateCcw, Shield, ChevronRight } from 'lucide-react'
+import { Truck, RotateCcw, Shield, ChevronRight, Star, Zap, Layers } from 'lucide-react'
 import ProductActions from '@/components/product/product-actions'
 import ProductAccordion from '@/components/product/product-accordion'
 import { ProductViewTracker } from '@/components/product/product-view-tracker'
 import { getProductPlaceholder } from '@/lib/utils/placeholder-images'
 import { type VariantExtension } from '@/components/product/product-price'
+import BundleOffer from '@/components/product/bundle-offer'
+import UrgencyBanner from '@/components/product/urgency-banner'
+import TrustSignals from '@/components/product/trust-signals'
+
+// Handles of products that get the full conversion-optimized experience
+const HERO_PRODUCT_HANDLES = new Set(['aurora-clear-case'])
 
 async function getProduct(handle: string) {
   try {
@@ -96,13 +102,19 @@ export default async function ProductPage({
   }
 
   const variantExtensions = await getVariantExtensions(product.id)
+  const isHeroProduct = HERO_PRODUCT_HANDLES.has(product.handle)
+
+  // Lowest inventory among in-stock variants — used for urgency banner
+  const stockCount = Object.values(variantExtensions)
+    .map((v) => v.inventory_quantity)
+    .filter((n): n is number => typeof n === 'number' && n > 0)
+    .sort((a, b) => a - b)[0] ?? null
 
   const allImages = [
     ...(product.thumbnail ? [{ url: product.thumbnail }] : []),
     ...(product.images || []).filter((img: any) => img.url !== product.thumbnail),
   ]
 
-  // Use placeholder if no images
   const displayImages = allImages.length > 0
     ? allImages
     : [{ url: getProductPlaceholder(product.id) }]
@@ -159,7 +171,7 @@ export default async function ProductPage({
 
           {/* Product Info */}
           <div className="lg:sticky lg:top-24 lg:self-start space-y-6">
-            {/* Title & Subtitle */}
+            {/* Title + reviews */}
             <div>
               {product.subtitle && (
                 <p className="text-sm uppercase tracking-[0.15em] text-muted-foreground mb-2">
@@ -167,6 +179,21 @@ export default async function ProductPage({
                 </p>
               )}
               <h1 className="text-h2 font-heading font-semibold">{product.title}</h1>
+              {isHeroProduct && (
+                <div className="mt-3 flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        className="h-4 w-4 fill-amber-400 text-amber-400"
+                        strokeWidth={0}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-semibold">4.9</span>
+                  <span className="text-muted-foreground">· 2,847 happy customers</span>
+                </div>
+              )}
             </div>
 
             <ProductViewTracker
@@ -177,30 +204,92 @@ export default async function ProductPage({
               value={product.variants?.[0]?.calculated_price?.calculated_amount ?? null}
             />
 
-            {/* Variant Selector + Price + Add to Cart (client component) */}
+            {/* Urgency banner on hero product */}
+            {isHeroProduct && <UrgencyBanner stockCount={stockCount} />}
+
+            {/* Variant Selector + Price + Add to Cart */}
             <ProductActions product={product} variantExtensions={variantExtensions} />
 
-            {/* Trust Signals */}
-            <div className="grid grid-cols-3 gap-4 py-6 border-t">
-              <div className="text-center">
-                <Truck className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">Free Shipping</p>
-              </div>
-              <div className="text-center">
-                <RotateCcw className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">30-Day Returns</p>
-              </div>
-              <div className="text-center">
-                <Shield className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">Secure Checkout</p>
-              </div>
-            </div>
+            {/* Bundle offer — hero product only */}
+            {isHeroProduct && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    Or save with a bundle
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <BundleOffer product={product} />
+              </>
+            )}
 
-            {/* Accordion Sections */}
+            {/* Feature highlights on hero product */}
+            {isHeroProduct && (
+              <div className="grid grid-cols-3 gap-3 border-y py-5">
+                <div className="text-center">
+                  <Zap className="mx-auto mb-1.5 h-5 w-5" strokeWidth={1.75} />
+                  <p className="text-xs font-semibold">10-ft drop</p>
+                  <p className="text-[10px] text-muted-foreground">MIL-STD-810H</p>
+                </div>
+                <div className="text-center">
+                  <Layers className="mx-auto mb-1.5 h-5 w-5" strokeWidth={1.75} />
+                  <p className="text-xs font-semibold">MagSafe</p>
+                  <p className="text-[10px] text-muted-foreground">N52 magnets</p>
+                </div>
+                <div className="text-center">
+                  <Shield className="mx-auto mb-1.5 h-5 w-5" strokeWidth={1.75} />
+                  <p className="text-xs font-semibold">Anti-yellow</p>
+                  <p className="text-[10px] text-muted-foreground">2-yr guarantee</p>
+                </div>
+              </div>
+            )}
+
+            {/* Trust Signals */}
+            {isHeroProduct ? (
+              <TrustSignals />
+            ) : (
+              <div className="grid grid-cols-3 gap-4 py-6 border-t">
+                <div className="text-center">
+                  <Truck className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
+                  <p className="text-xs text-muted-foreground">Free Shipping</p>
+                </div>
+                <div className="text-center">
+                  <RotateCcw className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
+                  <p className="text-xs text-muted-foreground">30-Day Returns</p>
+                </div>
+                <div className="text-center">
+                  <Shield className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
+                  <p className="text-xs text-muted-foreground">Secure Checkout</p>
+                </div>
+              </div>
+            )}
+
+            {/* Accordion */}
             <ProductAccordion
               description={product.description}
               details={product.metadata as Record<string, string> | undefined}
             />
+
+            {/* Guarantee callout — hero product only */}
+            {isHeroProduct && (
+              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white">
+                    <Shield className="h-4 w-4" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-950">
+                      Try it for 60 days. Love it or send it back — on us.
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-emerald-900/80">
+                      We&apos;ll refund every cent, no questions asked. And if your case
+                      ever fails, lifetime warranty has your back.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
